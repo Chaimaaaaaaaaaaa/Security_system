@@ -17,10 +17,12 @@ Ce projet permet de surveiller un lieu à distance en détectant un mouvement vi
 ## Schéma d'Architecture
 
 ![Capture d'écran 2025-01-30 085335](https://github.com/user-attachments/assets/f6c57d0f-2df1-4bdf-9a00-5d6777244d44)
-Schéma software 
+
+**Schéma software**
 
 ![Capture d'écran 2025-01-30 084859](https://github.com/user-attachments/assets/227eee4e-ef2e-4afe-90e0-122c5ce396d3)
-Schéma hardware
+
+**Schéma hardware**
 
 ## Installation & Configuration
 ### 1. Préparer le Raspberry Pi
