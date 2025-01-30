@@ -1,16 +1,34 @@
 from gpiozero import MotionSensor
-from picamzero import Camera
 import datetime
 import smtplib
 from email.message import EmailMessage
 import os
 import time
+import socket
+import subprocess
 
-# Fonction pour envoyer un email avec une photo ou vidéo en pièce jointe
-def send_email_gmail(subject, message, destination, media_path, media_type='image'):
+# Fonction pour récupérer l'adresse IP locale sur le réseau
+def get_ipv4_address():
+    # Récupère l'adresse IP associée à l'interface réseau active (Wi-Fi, Ethernet)
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(0)
+    try:
+        # On utilise google.com comme serveur pour trouver l'IP
+        s.connect(('8.8.8.8', 80))
+        ip_address = s.getsockname()[0]
+    except Exception as e:
+        print(f"Erreur lors de la récupération de l'IP : {e}")
+        ip_address = None
+    finally:
+        s.close()
+    return ip_address
+
+
+# Fonction pour envoyer un email avec le lien du flux vidéo
+def send_email_gmail(subject, message, destination):
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.starttls()
-    # Remplacez par votre mot de passe d'application
+    # Remplacez par le mot de passe d'application
     server.login('braspeyy@gmail.com', 'mpsg ptgf sfvx wcys')
 
     msg = EmailMessage()
@@ -19,19 +37,10 @@ def send_email_gmail(subject, message, destination, media_path, media_type='imag
     msg['From'] = 'braspeyy@gmail.com'
     msg['To'] = destination
 
-    # Ajouter la photo/vidéo en pièce jointe
-    with open(media_path, 'rb') as media:
-        file_data = media.read()
-        file_name = os.path.basename(media_path)
-        if media_type == 'image':
-            msg.add_attachment(file_data, maintype='image', subtype='jpeg', filename=file_name)
-        else:
-            msg.add_attachment(file_data, maintype='video', subtype='mp4', filename=file_name)
-
     server.send_message(msg)
     server.quit()
 
-# Lire l'adresse e-mail à partir du fichier mail.txt
+# Lire l'adresse e-mail à partir du fichier mail.txt écrit par le code usb.py
 def read_email_from_file(file_path):
     with open(file_path, 'r') as f:
         lines = f.readlines()
@@ -42,24 +51,14 @@ def read_email_from_file(file_path):
 
 # Initialisation du capteur et de la caméra
 pir = MotionSensor(15)
-camera = Camera()
-
 
 # Lire l'adresse email dans mail.txt
-email_destination = read_email_from_file("mail.txt")
+email_destination = read_email_from_file("/home/abc/Desktop/Projet_IOT/mail.txt")
 
 if email_destination:
-    print(f"Envoi des photos à : {email_destination}")
+    print(f"Envoi des mail : {email_destination}")
 else:
     print("Adresse e-mail non trouvée dans le fichier.")
-
-# Fonction pour attendre sans rien faire pendant un certain temps
-def wait_for_next_detection(timeout):
-    print(f"En attente de {timeout / 60} minutes avant de détecter à nouveau...")
-    time.sleep(timeout)
-
-# Compteur pour alterner entre photo et vidéo
-motion_count = 0
 
 
 while True:
@@ -67,52 +66,26 @@ while True:
     pir.wait_for_motion()  # Attendre un mouvement
     print("Mouvement détecté")
 
-    motion_count += 1
+    ip = get_ipv4_address() # Récupérer l'IP locale
+    stream_url = f"http://{ip}:8000"  # Utilisation de l'IP locale
+    print(f"URL de streaming : {stream_url}")  # Pour vérifier l'IP et l'URL
 
-    # Capture de la photo 
-    photo_path = f"/home/abc/Desktop/Projet_IOT/img/photo.jpg"
-
-    if motion_count == 1:  # Premier et tous les mouvements impairs => photo
-        print("Prise de photo...")
-        camera.take_photo(photo_path)
-
-        if email_destination:
-            # Envoi du mail avec la photo en pièce jointe
-            send_email_gmail(
-                subject="Mouvement détecté - Photo", 
-                message="Un mouvement a été détecté, voici la photo prise.", 
-                destination=email_destination, 
-                media_path=photo_path, 
-                media_type='image'
-            )
+    if email_destination:
+        send_email_gmail(
+	    subject="Mouvement détecté - Flux en direct",
+            message=f"Un mouvement a été détecté. Vous pouvez visualiser le flux en direct de la caméra à l'adresse suivante : {stream_url}",
+            destination=email_destination
+        )
             
-            # Attendre la fin du mouvement
-            pir.wait_for_no_motion()
-        else:
-            print("Aucune adresse e-mail valide trouvée.")
-
-    else:  # Tous les mouvements pairs => vidéo
-        print("Enregistrement vidéo de 1 minute...")
-        video_path = f"/home/abc/Desktop/Projet_IOT/img/video.mp4"
-        camera.record_video(video_path, duration=60)  # Enregistrer une vidéo de 1 minute
-
-        if email_destination:
-            # Envoi du mail avec la vidéo en pièce jointe
-            send_email_gmail(
-                subject="Mouvement détecté - Vidéo", 
-                message="Un mouvement a été détecté, voici la vidéo enregistrée.", 
-                destination=email_destination, 
-                media_path=video_path, 
-                media_type='video'
-            )
-            # Attendre la fin du mouvement
-            pir.wait_for_no_motion()
-        else:
-            print("Aucune adresse e-mail valide trouvée.")
-            
-        # Attendre 10 minutes avant de traiter une nouvelle détection
-        motion_count = 0
-        wait_for_next_detection(600)  # 600 secondes = 10 minutes
-   
-
-
+        # Lancer le script server.py
+        try:
+            process = subprocess.Popen(['python3', '/home/abc/Desktop/Projet_IOT/stream.py'])  # Lance server.py en mode non-bloquant
+            print("Le serveur a été lancé.")
+            process.wait()
+        except Exception as e:
+            print(f"Erreur lors du lancement du serveur : {e}")
+     
+        # Attendre la fin du mouvement
+        pir.wait_for_no_motion()
+    else:
+        print("Aucune adresse e-mail valide trouvée.")
