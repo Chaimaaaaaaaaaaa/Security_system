@@ -2,6 +2,8 @@ import os
 import time
 import subprocess
 
+import sys
+
 # Fonction pour détecter les périphériques USB montés
 def detect_usb():
     mounted_devices = []
@@ -37,7 +39,7 @@ def write_email_to_file(email):
         # Nouveau chemin pour enregistrer le fichier
         file_path = '/home/abc/Desktop/Projet_IOT/mail.txt'
         
-        # Écriture de l'email dans le fichier
+        # Écriture de l'email dans le fichier mail.txt
         with open(file_path, 'w') as file:
             file.write(f"Email: {email}\n")
             print(f"L'email a été écrit dans le fichier {file_path} : {email}")
@@ -76,42 +78,40 @@ print("En attente de connexion USB...")
 initial_devices = detect_usb()
 
 while True:
-    try:
-        # Vérifie périodiquement les périphériques montés
-        time.sleep(2)
-        current_devices = detect_usb()
 
-        # Détecte un nouveau périphérique USB
-        new_devices = list(set(current_devices) - set(initial_devices))
-        if new_devices:
-            for device in new_devices:
-                print(f"Nouveau périphérique détecté : {device}")
-               
-                # Exemple : lire un fichier spécifique dans le périphérique USB
-                file_path = os.path.join(device, 'mon_fichier.txt')  # Remplacez par le nom du fichier
-                if os.path.exists(file_path):
-                    data = parse_file(file_path)
-                    if data:
-                        ssid = data.get('SSID', '')
-                        mdp = data.get('MDP', '')
-                        mail = data.get('MAIL', '')
+    # Vérifie périodiquement les périphériques montés
+    time.sleep(2)
+    current_devices = detect_usb()
+
+    # Détecte un nouveau périphérique USB
+    new_devices = list(set(current_devices) - set(initial_devices))
+    if new_devices:
+        for device in new_devices:
+            print(f"Nouveau périphérique détecté : {device}")
+             
+            # Exemple : lire un fichier spécifique dans le périphérique USB
+            file_path = os.path.join(device, 'mon_fichier.txt')
+            if os.path.exists(file_path):
+                data = parse_file(file_path)
+                if data:
+                    ssid = data.get('SSID', '')
+                    mdp = data.get('MDP', '')
+                    mail = data.get('MAIL', '')
                        
-                        # Stocke les valeurs extraites
-                        print(f"SSID: {ssid}")
-                        print(f"MDP: {mdp}")
-                        print(f"MAIL: {mail}")
+                    # Stocke les valeurs extraites
+                    print(f"SSID: {ssid}")
+                    print(f"MDP: {mdp}")
+                    print(f"MAIL: {mail}")
                         
-                        # Écrire l'email dans un fichier
-                        write_email_to_file(mail)
+                    # Écrire l'email dans un fichier
+                    write_email_to_file(mail)
                         
-                        # Test avec des identifiants récupérés
-                        connect_wifi(ssid, mdp)
-                else:
-                    print(f"Le fichier {file_path} n'existe pas sur le périphérique {device}")
-       
-        # Met à jour la liste des périphériques montés
-        initial_devices = current_devices
+                    # Test avec des identifiants récupérés
+                    connect_wifi(ssid, mdp)
+                    sys.exit(0)
 
-    except KeyboardInterrupt:
-        print("\nArrêt du programme.")
-        break
+            else:
+                print(f"Le fichier {file_path} n'existe pas sur le périphérique {device}")
+            break
+    # Met à jour la liste des périphériques montés
+    initial_devices = current_devices
